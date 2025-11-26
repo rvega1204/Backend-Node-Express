@@ -1,3 +1,56 @@
+/**
+ * Auth Middleware Unit Tests
+ * 
+ * Comprehensive test suite for JWT authentication middleware logic.
+ * Tests cover token validation, error handling, edge cases, and database interactions.
+ * 
+ * @fileoverview Tests for verifyToken middleware function
+ * @version 3.0
+ * 
+ * Test Coverage:
+ * - Valid authentication with Bearer tokens
+ * - Missing or invalid authorization headers
+ * - Invalid and expired JWT tokens
+ * - User existence verification in database
+ * - Edge cases (extra spaces, case sensitivity)
+ * - Database error handling
+ * - Token expiration scenarios
+ * 
+ * Dependencies:
+ * - jsonwebtoken: For JWT token generation and verification
+ * - jest: Testing framework with mocking capabilities
+ * 
+ * Environment:
+ * - JWT_SECRET: Secret key for signing tokens (defaults to 'test-secret-key')
+ * 
+ * Mock Objects:
+ * - req: Mock Express request object with headers
+ * - res: Mock Express response object with status() and json() methods
+ * - next: Mock Express next middleware function
+ * - User: Mock User model with findById() method
+ * 
+ * @function verifyToken
+ * @async
+ * @param {Object} req - Express request object
+ * @param {Object} req.headers - Request headers
+ * @param {string} req.headers.authorization - Authorization header with Bearer token
+ * @param {Object} res - Express response object
+ * @param {Function} res.status - Sets HTTP status code
+ * @param {Function} res.json - Sends JSON response
+ * @param {Function} next - Calls next middleware on success
+ * @returns {Promise<void>}
+ * @throws {TokenExpiredError} When JWT token has expired
+ * @throws {JsonWebTokenError} When JWT token is invalid or malformed
+ * @throws {Error} Other unexpected errors during user lookup
+ * 
+ * Response Codes:
+ * - 401: Unauthorized (missing token, invalid token, expired token, user not found)
+ * - 500: Internal server error (database or unexpected errors)
+ * 
+ * Success Behavior:
+ * - Attaches authenticated user object to req.user
+ * - Calls next() middleware function
+ */
 const jwt = require('jsonwebtoken');
 
 describe('Auth Middleware Logic', () => {
@@ -19,7 +72,6 @@ describe('Auth Middleware Logic', () => {
 
     jest.clearAllMocks();
   });
-
 
   const verifyToken = async (req, res, next) => {
     try {
@@ -218,12 +270,10 @@ describe('Auth Middleware Logic', () => {
 
     it('should be case-sensitive with Bearer prefix', async () => {
       const token = jwt.sign({ id: 'user123' }, SECRET);
-      req.headers.authorization = `bearer ${token}`; // lowercase 'b'
+      req.headers.authorization = `bearer ${token}`; 
 
       await verifyToken(req, res, next);
 
-      // Your implementation checks: authHeader.startsWith('Bearer ')
-      // With capital B, so lowercase fails the check
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({
         message: 'Access token required',
@@ -240,19 +290,25 @@ describe('Auth Middleware Logic', () => {
   });
 
   describe('Database Errors', () => {
-    it('should handle database errors gracefully', async () => {
-      const token = jwt.sign({ id: 'user123' }, SECRET);
-      req.headers.authorization = `Bearer ${token}`;
-      User.findById.mockRejectedValue(new Error('Database connection failed'));
+  it('should handle database errors gracefully', async () => {
+    // Temporarily silence console.error for this test
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    
+    const token = jwt.sign({ id: 'user123' }, SECRET);
+    req.headers.authorization = `Bearer ${token}`;
+    User.findById.mockRejectedValue(new Error('Database connection failed'));
 
-      await verifyToken(req, res, next);
+    await verifyToken(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({
-        message: 'Internal server error',
-      });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      message: 'Internal server error',
     });
+    
+    // Restore console.error
+    consoleSpy.mockRestore();
   });
+});
 
   describe('Token Expiration', () => {
     it('should accept freshly created token', async () => {

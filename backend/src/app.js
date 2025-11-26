@@ -14,6 +14,7 @@ import postRouter from './routes/post.route.js';
  * Initializes the Express application.
  * @constant {Object} app - The Express application instance.
  */
+const app = express();
 
 // Middleware to parse JSON request bodies
 /**
